@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm search:*)",
+      "Bash(timeout 15)",
+      "Bash(curl -s http://localhost:3002)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(curl -s http://localhost:3001)",
+      "Bash(curl -s \"http://localhost:3001/_next/static/css/app/layout.css\")",
+      "Bash(cat .next/static/css/app/*.css)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(curl -sI http://localhost:3001)",
+      "Bash(curl -s \"http://localhost:3001/_next/static/css/app/layout.css?v=1775412434229\")",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(pkill -f \"next\")",
+      "Bash(pkill -f \"node\")",
+      "Bash(tee /dev/stderr)",
+      "Bash(curl -sI http://localhost:3000)",
+      "Bash(curl -s http://localhost:3007)",
+      "Bash(curl -s \"http://localhost:3007/_next/static/css/app/layout.css?v=1775412653818\")"
+    ]
+  }
+}

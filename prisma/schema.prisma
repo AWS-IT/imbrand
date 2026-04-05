@@ -1,0 +1,328 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Роли пользователей
+enum Role {
+  USER
+  ADMIN
+}
+
+// Статусы заказа
+enum OrderStatus {
+  PENDING_PAYMENT  // Ожидает оплаты
+  PAID             // Оплачен
+  PROCESSING       // В обработке
+  SHIPPED          // Отправлен
+  DELIVERED        // Доставлен
+  CANCELLED        // Отменён
+}
+
+// Статусы платежа
+enum PaymentStatus {
+  PENDING    // Ожидает
+  SUCCESS    // Успешно
+  FAILED     // Ошибка
+  REFUNDED   // Возврат
+}
+
+// Пользователь
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  phone         String?
+  image         String?
+  role          Role      @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  orders        Order[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+  cartItems     CartItem[]
+
+  @@map("users")
+}
+
+// Аккаунты OAuth (для Auth.js)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// Сессии (для Auth.js)
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// Токен верификации (для Auth.js)
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// Категория товаров
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?   @db.Text
+  image       String?
+  parentId    String?
+  parent      Category? @relation("CategoryToCategory", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[] @relation("CategoryToCategory")
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("categories")
+}
+
+// Товар
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  price       Decimal  @db.Decimal(10, 2)
+  oldPrice    Decimal? @db.Decimal(10, 2)  // Старая цена для скидки
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false)    // Показывать на главной
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  images      ProductImage[]
+  variants    ProductVariant[]
+  reviews     Review[]
+  wishlistItems WishlistItem[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+
+  @@map("products")
+}
+
+// Изображения товара (несколько фото)
+model ProductImage {
+  id        String   @id @default(cuid())
+  url       String
+  publicId  String?  // ID в Cloudinary для удаления
+  position  Int      @default(0)  // Порядок отображения
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("product_images")
+}
+
+// Вариант товара (размер + цвет + остаток)
+model ProductVariant {
+  id        String   @id @default(cuid())
+  size      String   // S, M, L, XL, XXL и т.д.
+  color     String   // Название цвета
+  colorHex  String?  // HEX код цвета для отображения
+  stock     Int      @default(0)  // Остаток на складе
+  sku       String?  // Артикул
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@unique([productId, size, color])
+  @@map("product_variants")
+}
+
+// Корзина пользователя
+model CartItem {
+  id        String   @id @default(cuid())
+  quantity  Int      @default(1)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId, variantId])
+  @@map("cart_items")
+}
+
+// Заказ
+model Order {
+  id           String      @id @default(cuid())
+  orderNumber  String      @unique  // Номер заказа для отображения
+  status       OrderStatus @default(PENDING_PAYMENT)
+  totalAmount  Decimal     @db.Decimal(10, 2)
+
+  // Данные покупателя
+  customerName  String
+  customerEmail String?
+  customerPhone String
+
+  // Адрес доставки (опционально)
+  deliveryAddress String?  @db.Text
+  deliveryCity    String?
+  deliveryZip     String?
+
+  // Комментарий к заказу
+  comment      String?     @db.Text
+
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  paidAt       DateTime?   // Дата оплаты
+
+  items        OrderItem[]
+  payment      Payment?
+
+  @@map("orders")
+}
+
+// Позиция в заказе
+model OrderItem {
+  id          String   @id @default(cuid())
+  quantity    Int
+  price       Decimal  @db.Decimal(10, 2)  // Цена на момент заказа
+
+  // Сохраняем данные товара на момент заказа
+  productName String
+  productSize String
+  productColor String
+
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variantId   String?
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+
+  @@map("order_items")
+}
+
+// Платёж
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Decimal       @db.Decimal(10, 2)
+  status        PaymentStatus @default(PENDING)
+
+  // Данные от Тинькофф
+  paymentId     String?       // ID платежа в системе Тинькофф
+  paymentUrl    String?       @db.Text  // Ссылка на оплату
+
+  orderId       String        @unique
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  confirmedAt   DateTime?     // Дата подтверждения платежа
+
+  @@map("payments")
+}
+
+// Отзыв о товаре
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int      // 1-5 звёзд
+  text      String?  @db.Text
+  isApproved Boolean @default(false)  // Модерация отзывов
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId])  // Один отзыв от пользователя на товар
+  @@map("reviews")
+}
+
+// Список желаний
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@map("wishlist_items")
+}
+
+// Настройки сайта
+model SiteSettings {
+  id          String   @id @default("main")
+  siteName    String   @default("Imbrand")
+  logoUrl     String?  // URL логотипа в Cloudinary
+  logoPublicId String? // Public ID в Cloudinary для удаления
+
+  // Контактная информация
+  contactEmail String?
+  contactPhone String?
+  contactAddress String? @db.Text
+
+  // Ссылки на соцсети
+  instagramUrl String?
+  telegramUrl  String?
+  whatsappUrl  String?
+
+  // SEO
+  metaTitle       String?
+  metaDescription String? @db.Text
+
+  // Доставка
+  deliveryInfo    String? @db.Text
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("site_settings")
+}
