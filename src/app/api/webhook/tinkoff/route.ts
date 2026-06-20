@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+/*import { NextResponse } from 'next/server'
 import { verifyWebhookSignature, TinkoffPaymentStatus } from '@/lib/tinkoff'
 import { processSuccessfulPayment } from '@/actions/order'
 
@@ -61,3 +61,4 @@ export async function POST(request: Request) {
 export async function GET() {
   return NextResponse.json({ status: 'OK' })
 }
+*/
