@@ -2,8 +2,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { prisma } from '@/lib/prisma'
 import { ProductGrid } from '@/components/product/ProductCard'
-import { Button } from '@/components/ui/button'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Sparkles, Percent, Truck, Shield, RotateCcw } from 'lucide-react'
+import { HeroSection } from '@/components/home/HeroSection'
+import { ProductSlider } from '@/components/home/ProductSlider'
 
 async function getFeaturedProducts() {
   const products = await prisma.product.findMany({
@@ -35,9 +36,13 @@ async function getFeaturedProducts() {
 }
 
 async function getNewProducts() {
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
   const products = await prisma.product.findMany({
     where: {
       isActive: true,
+      createdAt: { gte: thirtyDaysAgo },
       variants: {
         some: {
           stock: { gt: 0 },
@@ -51,7 +56,7 @@ async function getNewProducts() {
       },
       category: true,
     },
-    take: 8,
+    take: 4,
     orderBy: { createdAt: 'desc' },
   })
 
@@ -60,6 +65,37 @@ async function getNewProducts() {
     price: Number(p.price),
     oldPrice: p.oldPrice ? Number(p.oldPrice) : null,
   }))
+}
+
+async function getSaleProducts() {
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      oldPrice: { not: null },
+      variants: {
+        some: {
+          stock: { gt: 0 },
+        },
+      },
+    },
+    include: {
+      images: {
+        orderBy: { position: 'asc' },
+        take: 1,
+      },
+      category: true,
+    },
+    take: 4,
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return products
+    .map(p => ({
+      ...p,
+      price: Number(p.price),
+      oldPrice: p.oldPrice ? Number(p.oldPrice) : null,
+    }))
+    .filter(p => p.oldPrice && p.oldPrice > p.price)
 }
 
 async function getCategories() {
@@ -84,37 +120,57 @@ async function getCategories() {
 }
 
 export default async function HomePage() {
-  const [featuredProducts, newProducts, categories] = await Promise.all([
+  const [featuredProducts, newProducts, saleProducts, categories] = await Promise.all([
     getFeaturedProducts(),
     getNewProducts(),
+    getSaleProducts(),
     getCategories(),
   ])
 
   return (
     <div>
       {/* Hero секция */}
-      <section className="relative h-[70vh] md:h-[85vh] flex items-center">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/70 to-transparent z-10" />
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-700" />
+      <HeroSection products={featuredProducts} />
 
-        <div className="container mx-auto px-4 relative z-20">
-          <div className="max-w-xl">
-            <h1 className="text-4xl md:text-6xl font-display font-semibold text-white mb-6 leading-tight">
-              Элегантность в каждой детали
-            </h1>
-            <p className="text-lg md:text-xl text-gray-200 mb-8">
-              Откройте для себя коллекцию премиальной женской одежды, созданной для тех, кто ценит стиль и качество.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button asChild size="lg" className="bg-white text-[#0a0a0a] hover:bg-gray-100">
-                <Link href="/catalog">
-                  Смотреть каталог
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="border-white text-white hover:bg-white/10">
-                <Link href="/catalog/new">Новая коллекция</Link>
-              </Button>
+      {/* Преимущества */}
+      <section className="py-8 bg-neutral-900 border-b border-neutral-800">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-neutral-800 rounded-full">
+                <Truck className="h-5 w-5 text-amber-200" />
+              </div>
+              <div>
+                <p className="font-medium text-sm text-white">Бесплатная доставка</p>
+                <p className="text-xs text-neutral-400">от 10 000 ₽</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-neutral-800 rounded-full">
+                <Shield className="h-5 w-5 text-amber-200" />
+              </div>
+              <div>
+                <p className="font-medium text-sm text-white">Гарантия качества</p>
+                <p className="text-xs text-neutral-400">100% оригинал</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-neutral-800 rounded-full">
+                <RotateCcw className="h-5 w-5 text-amber-200" />
+              </div>
+              <div>
+                <p className="font-medium text-sm text-white">Возврат 14 дней</p>
+                <p className="text-xs text-neutral-400">без вопросов</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-neutral-800 rounded-full">
+                <Shield className="h-5 w-5 text-amber-200" />
+              </div>
+              <div>
+                <p className="font-medium text-sm text-white">Безопасная оплата</p>
+                <p className="text-xs text-neutral-400">защита данных</p>
+              </div>
             </div>
           </div>
         </div>
@@ -122,19 +178,33 @@ export default async function HomePage() {
 
       {/* Категории */}
       {categories.length > 0 && (
-        <section className="py-16 bg-gray-50">
+        <section className="py-12 md:py-16 bg-neutral-950">
           <div className="container mx-auto px-4">
-            <h2 className="text-2xl md:text-3xl font-display font-semibold text-center mb-12">
-              Категории
-            </h2>
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl md:text-3xl font-display font-semibold text-white">
+                Категории
+              </h2>
+              <Link
+                href="/catalog"
+                className="text-sm text-neutral-400 hover:text-white flex items-center gap-1"
+              >
+                Все категории <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              {categories.map((category) => (
+              {categories.map((category, index) => (
                 <Link
                   key={category.id}
                   href={`/catalog/${category.slug}`}
-                  className="group relative aspect-square rounded-lg overflow-hidden"
+                  className="group relative aspect-[3/4] rounded-lg overflow-hidden"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-600" />
+                  {/* Gradient fallback - dark elegant colors */}
+                  <div className={`absolute inset-0 ${
+                    index % 4 === 0 ? 'bg-gradient-to-br from-rose-900 to-rose-950' :
+                    index % 4 === 1 ? 'bg-gradient-to-br from-violet-900 to-violet-950' :
+                    index % 4 === 2 ? 'bg-gradient-to-br from-amber-900 to-amber-950' :
+                    'bg-gradient-to-br from-emerald-900 to-emerald-950'
+                  }`} />
                   {category.image && (
                     <Image
                       src={category.image}
@@ -143,12 +213,12 @@ export default async function HomePage() {
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   )}
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-colors" />
+                  <div className="absolute inset-0 bg-black/30 group-hover:bg-black/20 transition-colors" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-4">
-                    <h3 className="text-lg md:text-xl font-semibold text-center mb-1">
+                    <h3 className="text-lg md:text-xl font-semibold text-center mb-1 drop-shadow-md">
                       {category.name}
                     </h3>
-                    <p className="text-sm text-gray-200">
+                    <p className="text-sm text-white/80 drop-shadow">
                       {category._count.products} товаров
                     </p>
                   </div>
@@ -159,86 +229,79 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* Избранные товары */}
-      {featuredProducts.length > 0 && (
-        <div className="container mx-auto px-4">
-          <ProductGrid
-            products={featuredProducts}
-            title="Избранное"
-            showMoreLink="/catalog"
-          />
-        </div>
-      )}
-
-      {/* Баннер */}
-      <section className="py-16 bg-[#0a0a0a] text-white">
-        <div className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl md:text-4xl font-display font-semibold mb-6">
-              Бесплатная доставка
-            </h2>
-            <p className="text-lg text-gray-300 mb-8">
-              При заказе от 10 000 ₽ доставка по всей России бесплатно.
-              Оформите заказ сегодня и получите его в кратчайшие сроки.
-            </p>
-            <Button asChild size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-[#0a0a0a]">
-              <Link href="/delivery">Узнать больше</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
       {/* Новинки */}
       {newProducts.length > 0 && (
-        <div className="container mx-auto px-4">
-          <ProductGrid
-            products={newProducts}
-            title="Новинки"
-            showMoreLink="/catalog/new"
-          />
-        </div>
+        <section className="py-12 md:py-16 bg-neutral-900">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-6 w-6 text-amber-400" />
+                <h2 className="text-2xl md:text-3xl font-display font-semibold text-white">
+                  Горячие новинки
+                </h2>
+              </div>
+              <Link
+                href="/catalog/new"
+                className="text-sm text-neutral-400 hover:text-white flex items-center gap-1"
+              >
+                Все новинки <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <ProductGrid products={newProducts} darkMode />
+          </div>
+        </section>
       )}
 
-      {/* Преимущества */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-[#0a0a0a] rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                </svg>
+      {/* Акции */}
+      {saleProducts.length > 0 && (
+        <section className="py-12 md:py-16 bg-neutral-950">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="p-1.5 bg-rose-500 rounded-full">
+                  <Percent className="h-4 w-4 text-white" />
+                </div>
+                <h2 className="text-2xl md:text-3xl font-display font-semibold text-white">
+                  Акции
+                </h2>
               </div>
-              <h3 className="text-lg font-semibold mb-2">Быстрая доставка</h3>
-              <p className="text-gray-600">
-                Доставляем заказы по всей России в кратчайшие сроки
-              </p>
+              <Link
+                href="/catalog/sale"
+                className="text-sm text-neutral-400 hover:text-white flex items-center gap-1"
+              >
+                Все акции <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-[#0a0a0a] rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Гарантия качества</h3>
-              <p className="text-gray-600">
-                Только качественные материалы и безупречный пошив
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-[#0a0a0a] rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Простой возврат</h3>
-              <p className="text-gray-600">
-                14 дней на возврат товара надлежащего качества
-              </p>
-            </div>
+            <ProductGrid products={saleProducts} darkMode />
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* Избранные товары - слайдер */}
+      {featuredProducts.length > 0 && (
+        <section className="py-12 md:py-16 bg-neutral-900">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-2xl md:text-3xl font-display font-semibold text-white">
+                Популярные товары
+              </h2>
+              <Link
+                href="/catalog"
+                className="text-sm text-neutral-400 hover:text-white flex items-center gap-1"
+              >
+                Весь каталог <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <ProductSlider
+              products={featuredProducts}
+              autoPlay={true}
+              autoPlayInterval={5000}
+              slidesPerView={4}
+              //darkMode={}
+            />
+          </div>
+        </section>
+      )}
     </div>
   )
 }

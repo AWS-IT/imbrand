@@ -1,13 +1,7 @@
+import { Suspense } from 'react'
 import { prisma } from '@/lib/prisma'
-import { ProductGrid } from '@/components/product/ProductCard'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import Link from 'next/link'
+import { CatalogSort } from '@/components/catalog/CatalogSort'
 
 interface CatalogPageProps {
   searchParams: Promise<{
@@ -127,31 +121,9 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             <h1 className="text-2xl md:text-3xl font-display font-semibold">
               Все товары
             </h1>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500">Сортировка:</span>
-              <Select defaultValue={sort}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">
-                    <Link href="/catalog?sort=newest" className="block w-full">
-                      Сначала новые
-                    </Link>
-                  </SelectItem>
-                  <SelectItem value="price_asc">
-                    <Link href="/catalog?sort=price_asc" className="block w-full">
-                      Сначала дешевле
-                    </Link>
-                  </SelectItem>
-                  <SelectItem value="price_desc">
-                    <Link href="/catalog?sort=price_desc" className="block w-full">
-                      Сначала дороже
-                    </Link>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Suspense fallback={<div className="w-[180px] h-10 bg-gray-100 animate-pulse rounded" />}>
+              <CatalogSort currentSort={sort} />
+            </Suspense>
           </div>
 
           {/* Товары */}

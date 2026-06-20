@@ -12,19 +12,28 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { formatPrice, validateRussianPhone } from '@/lib/utils'
-import { Loader2 } from 'lucide-react'
+import { formatPrice } from '@/lib/utils'
+import { Loader2, ShoppingBag, Phone, User, Mail, MapPin, MessageSquare } from 'lucide-react'
 
-// Схема валидации формы
+// Схема валидации — телефон принимаем любой международный
 const checkoutSchema = z.object({
-  customerName: z.string().min(2, 'Введите имя'),
-  customerPhone: z.string()
-    .min(10, 'Введите номер телефона')
-    .refine(validateRussianPhone, 'Введите корректный российский номер'),
-  customerEmail: z.string().email('Введите корректный email').optional().or(z.literal('')),
-  deliveryCity: z.string().optional(),
-  deliveryAddress: z.string().optional(),
-  comment: z.string().optional(),
+  customerName: z
+    .string()
+    .min(2, 'Введите имя (минимум 2 символа)')
+    .max(100, 'Слишком длинное имя'),
+  customerPhone: z
+    .string()
+    .min(7, 'Введите номер телефона')
+    .max(20, 'Слишком длинный номер')
+    .regex(/^[\d\s\+\-\(\)]+$/, 'Некорректный номер телефона'),
+  customerEmail: z
+    .string()
+    .email('Введите корректный email')
+    .optional()
+    .or(z.literal('')),
+  deliveryCity: z.string().max(100).optional(),
+  deliveryAddress: z.string().max(300).optional(),
+  comment: z.string().max(500, 'Комментарий слишком длинный').optional(),
 })
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>
@@ -83,26 +92,20 @@ export function CheckoutForm({
     try {
       const response = await fetch('/api/checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
 
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || 'Ошибка оформления заказа')
+        throw new Error(result.error || 'Ошибка оформления заявки')
       }
 
-      // Перенаправляем на страницу оплаты
-      if (result.paymentUrl) {
-        window.location.href = result.paymentUrl
-      } else {
-        router.push(`/checkout/success?order=${result.orderNumber}`)
-      }
+      // Успех — переходим на страницу подтверждения
+      router.push(`/checkout/success?order=${result.orderNumber}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка')
+      setError(err instanceof Error ? err.message : 'Произошла ошибка. Попробуйте ещё раз.')
     } finally {
       setIsSubmitting(false)
     }
@@ -110,45 +113,63 @@ export function CheckoutForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Форма */}
-      <div className="lg:col-span-2 space-y-8">
+
+      {/* Левая колонка — поля формы */}
+      <div className="lg:col-span-2 space-y-6">
+
         {/* Контактные данные */}
-        <div className="border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Контактные данные</h2>
+        <div className="border rounded-xl p-6 space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <User className="h-5 w-5 text-gray-400" />
+            Контактные данные
+          </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="customerName">Имя *</Label>
               <Input
                 id="customerName"
                 {...register('customerName')}
                 placeholder="Ваше имя"
+                autoComplete="name"
               />
               {errors.customerName && (
                 <p className="text-sm text-red-500">{errors.customerName.message}</p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="customerPhone">Телефон *</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="customerPhone">
+                <span className="flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5" />
+                  Телефон *
+                </span>
+              </Label>
               <Input
                 id="customerPhone"
                 type="tel"
                 {...register('customerPhone')}
                 placeholder="+7 (999) 123-45-67"
+                autoComplete="tel"
               />
               {errors.customerPhone && (
                 <p className="text-sm text-red-500">{errors.customerPhone.message}</p>
               )}
             </div>
 
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="customerEmail">Email (необязательно)</Label>
+            <div className="md:col-span-2 space-y-1.5">
+              <Label htmlFor="customerEmail">
+                <span className="flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5" />
+                  Email <span className="text-gray-400 font-normal">(необязательно)</span>
+                </span>
+              </Label>
               <Input
                 id="customerEmail"
                 type="email"
                 {...register('customerEmail')}
                 placeholder="email@example.com"
+                autoComplete="email"
               />
               {errors.customerEmail && (
                 <p className="text-sm text-red-500">{errors.customerEmail.message}</p>
@@ -158,59 +179,78 @@ export function CheckoutForm({
         </div>
 
         {/* Доставка */}
-        <div className="border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Доставка (необязательно)</h2>
+        <div className="border rounded-xl p-6 space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-gray-400" />
+            Адрес доставки
+            <span className="text-sm font-normal text-gray-400">(необязательно)</span>
+          </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="deliveryCity">Город</Label>
               <Input
                 id="deliveryCity"
                 {...register('deliveryCity')}
                 placeholder="Москва"
+                autoComplete="address-level2"
               />
             </div>
 
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="deliveryAddress">Адрес доставки</Label>
+            <div className="md:col-span-2 space-y-1.5">
+              <Label htmlFor="deliveryAddress">Улица, дом, квартира</Label>
               <Textarea
                 id="deliveryAddress"
                 {...register('deliveryAddress')}
-                placeholder="Улица, дом, квартира"
+                placeholder="ул. Пушкина, д. 1, кв. 5"
                 rows={2}
+                autoComplete="street-address"
               />
+              {errors.deliveryAddress && (
+                <p className="text-sm text-red-500">{errors.deliveryAddress.message}</p>
+              )}
             </div>
           </div>
         </div>
 
         {/* Комментарий */}
-        <div className="border rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Комментарий к заказу</h2>
-
+        <div className="border rounded-xl p-6 space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-gray-400" />
+            Комментарий
+            <span className="text-sm font-normal text-gray-400">(необязательно)</span>
+          </h2>
           <Textarea
             {...register('comment')}
-            placeholder="Дополнительная информация к заказу..."
+            placeholder="Удобное время для связи, пожелания по доставке..."
             rows={3}
           />
+          {errors.comment && (
+            <p className="text-sm text-red-500">{errors.comment.message}</p>
+          )}
         </div>
 
+        {/* Ошибка */}
         {error && (
-          <div className="p-4 bg-red-50 text-red-600 rounded-lg">
+          <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
             {error}
           </div>
         )}
       </div>
 
-      {/* Итоги */}
+      {/* Правая колонка — итог */}
       <div className="lg:col-span-1">
-        <div className="border rounded-lg p-6 sticky top-24">
-          <h2 className="text-lg font-semibold mb-4">Ваш заказ</h2>
+        <div className="border rounded-xl p-6 sticky top-24 space-y-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5 text-gray-400" />
+            Ваш заказ
+          </h2>
 
-          {/* Товары */}
-          <div className="space-y-4 mb-4">
+          {/* Список товаров */}
+          <div className="space-y-3">
             {cartItems.map((item) => (
               <div key={item.id} className="flex gap-3">
-                <div className="relative w-16 h-20 flex-shrink-0 rounded overflow-hidden bg-gray-100">
+                <div className="relative w-14 h-18 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
                   {item.product.images[0] ? (
                     <Image
                       src={item.product.images[0].url}
@@ -219,15 +259,17 @@ export function CheckoutForm({
                       className="object-cover"
                     />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs">
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-300 text-xs text-center px-1">
                       Нет фото
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium line-clamp-2">{item.product.name}</p>
+                  <p className="text-sm font-medium line-clamp-2 leading-snug">
+                    {item.product.name}
+                  </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    {item.variant.size}, {item.variant.color} × {item.quantity}
+                    {item.variant.size} · {item.variant.color} · {item.quantity} шт.
                   </p>
                   <p className="text-sm font-semibold mt-1">
                     {formatPrice(item.product.price * item.quantity)}
@@ -239,20 +281,20 @@ export function CheckoutForm({
 
           <Separator />
 
-          <div className="space-y-3 mt-4 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Товары</span>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between text-gray-500">
+              <span>Товары ({cartItems.length})</span>
               <span>{formatPrice(totalAmount)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Доставка</span>
-              <span className="text-green-600">Бесплатно</span>
+            <div className="flex justify-between text-gray-500">
+              <span>Доставка</span>
+              <span className="text-green-600 font-medium">По договорённости</span>
             </div>
           </div>
 
-          <Separator className="my-4" />
+          <Separator />
 
-          <div className="flex justify-between text-lg font-semibold mb-6">
+          <div className="flex justify-between font-semibold text-base">
             <span>Итого</span>
             <span>{formatPrice(totalAmount)}</span>
           </div>
@@ -269,13 +311,17 @@ export function CheckoutForm({
                 Оформляем...
               </>
             ) : (
-              'Перейти к оплате'
+              'Оформить заявку'
             )}
           </Button>
 
-          <p className="text-xs text-gray-500 text-center mt-4">
-            Нажимая «Перейти к оплате», вы соглашаетесь с{' '}
-            <Link href="/privacy" className="underline">
+          <p className="text-xs text-gray-400 text-center leading-relaxed">
+            После оформления заявки мы свяжемся с вами для подтверждения заказа и обсуждения оплаты
+          </p>
+
+          <p className="text-xs text-gray-400 text-center">
+            Нажимая кнопку, вы соглашаетесь с{' '}
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-gray-600">
               политикой конфиденциальности
             </Link>
           </p>

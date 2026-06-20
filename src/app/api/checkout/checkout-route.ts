@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
 import { createOrder } from '@/actions/order'
 
 export async function POST(request: Request) {
@@ -17,20 +16,27 @@ export async function POST(request: Request) {
     const data = await request.json()
 
     // Валидация обязательных полей
-    if (!data.customerName || !data.customerPhone) {
+    if (!data.customerName?.trim()) {
       return NextResponse.json(
-        { error: 'Имя и телефон обязательны' },
+        { error: 'Укажите имя' },
+        { status: 400 }
+      )
+    }
+
+    if (!data.customerPhone?.trim()) {
+      return NextResponse.json(
+        { error: 'Укажите номер телефона' },
         { status: 400 }
       )
     }
 
     const result = await createOrder({
-      customerName: data.customerName,
-      customerPhone: data.customerPhone,
-      customerEmail: data.customerEmail,
-      deliveryCity: data.deliveryCity,
-      deliveryAddress: data.deliveryAddress,
-      comment: data.comment,
+      customerName: data.customerName.trim(),
+      customerPhone: data.customerPhone.trim(),
+      customerEmail: data.customerEmail?.trim() || undefined,
+      deliveryCity: data.deliveryCity?.trim() || undefined,
+      deliveryAddress: data.deliveryAddress?.trim() || undefined,
+      comment: data.comment?.trim() || undefined,
     })
 
     if (result.error) {
@@ -41,12 +47,11 @@ export async function POST(request: Request) {
       success: true,
       orderId: result.orderId,
       orderNumber: result.orderNumber,
-      paymentUrl: result.paymentUrl,
     })
   } catch (error) {
-    console.error('Ошибка оформления заказа:', error)
+    console.error('Ошибка оформления заявки:', error)
     return NextResponse.json(
-      { error: 'Ошибка оформления заказа' },
+      { error: 'Ошибка оформления заявки. Попробуйте ещё раз.' },
       { status: 500 }
     )
   }

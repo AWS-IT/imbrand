@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X, ShoppingBag, Heart, User, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { SearchDialog } from '@/components/search/SearchDialog'
 
 interface HeaderProps {
   logoUrl?: string | null
@@ -31,6 +32,7 @@ export function Header({
 }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -46,29 +48,25 @@ export function Header({
       className={cn(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
         isScrolled
-          ? 'bg-white/95 backdrop-blur-md shadow-sm'
-          : 'bg-white'
+          ? 'bg-neutral-900/95 backdrop-blur-md shadow-lg'
+          : 'bg-neutral-900'
       )}
     >
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto pl-0 pr-4">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Логотип */}
-          <Link href="/" className="flex-shrink-0">
-            {logoUrl ? (
-              <Image
-                src={logoUrl}
-                alt="Imbrand"
-                width={160}
-                height={50}
-                className="h-8 md:h-10 w-auto object-contain"
-                priority
-              />
-            ) : (
-              <span className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-[#0a0a0a]">
-                Imbrand
-              </span>
-            )}
-          </Link>
+          <Link 
+            href="/" 
+            className="flex-shrink-0 translate-y-[-4px] -translate-x-[8px]"  // 👈 ВОТ ЗДЕСЬ
+          >
+          <Image
+            src="/uploads/logo/imbrandlogo.svg"
+            alt="Imbrand"
+            width={125}
+            height={40}
+            className="h-auto"
+          />
+        </Link>
 
           {/* Навигация (десктоп) */}
           <nav className="hidden md:flex items-center space-x-8">
@@ -76,10 +74,10 @@ export function Header({
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-gray-700 hover:text-[#0a0a0a] transition-colors relative group"
+                className="text-sm font-medium text-neutral-300 hover:text-white transition-colors relative group"
               >
                 {link.label}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#0a0a0a] transition-all group-hover:w-full" />
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-amber-200 transition-all group-hover:w-full" />
               </Link>
             ))}
           </nav>
@@ -90,8 +88,9 @@ export function Header({
             <Button
               variant="ghost"
               size="icon"
-              className="hidden md:flex"
+              className="hidden md:flex text-neutral-300 hover:text-white hover:bg-neutral-800"
               aria-label="Поиск"
+              onClick={() => setIsSearchOpen(true)}
             >
               <Search className="h-5 w-5" />
             </Button>
@@ -101,12 +100,12 @@ export function Header({
               <Button
                 variant="ghost"
                 size="icon"
-                className="relative"
+                className="relative text-neutral-300 hover:text-white hover:bg-neutral-800"
                 aria-label="Избранное"
               >
                 <Heart className="h-5 w-5" />
                 {wishlistCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 w-4 text-[10px] font-medium bg-[#0a0a0a] text-white rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 h-4 w-4 text-[10px] font-medium bg-rose-500 text-white rounded-full flex items-center justify-center">
                     {wishlistCount}
                   </span>
                 )}
@@ -118,12 +117,12 @@ export function Header({
               <Button
                 variant="ghost"
                 size="icon"
-                className="relative"
+                className="relative text-neutral-300 hover:text-white hover:bg-neutral-800"
                 aria-label="Корзина"
               >
                 <ShoppingBag className="h-5 w-5" />
                 {cartItemsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 w-4 text-[10px] font-medium bg-[#0a0a0a] text-white rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 h-4 w-4 text-[10px] font-medium bg-rose-500 text-white rounded-full flex items-center justify-center">
                     {cartItemsCount}
                   </span>
                 )}
@@ -135,6 +134,7 @@ export function Header({
               <Button
                 variant="ghost"
                 size="icon"
+                className="text-neutral-300 hover:text-white hover:bg-neutral-800"
                 aria-label={isLoggedIn ? 'Личный кабинет' : 'Войти'}
               >
                 <User className="h-5 w-5" />
@@ -144,7 +144,7 @@ export function Header({
             {/* Админка */}
             {isAdmin && (
               <Link href="/admin" className="hidden md:block">
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="border-neutral-600 text-black-300 hover:text-white hover:bg-neutral-800">
                   Админ
                 </Button>
               </Link>
@@ -154,7 +154,7 @@ export function Header({
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="md:hidden text-neutral-300 hover:text-white hover:bg-neutral-800"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Меню"
             >
@@ -176,14 +176,25 @@ export function Header({
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden bg-white border-t"
+            className="md:hidden bg-neutral-900 border-t border-neutral-800"
           >
             <nav className="container mx-auto px-4 py-4 space-y-2">
+              {/* Mobile Search Button */}
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false)
+                  setIsSearchOpen(true)
+                }}
+                className="flex items-center gap-3 w-full py-2 text-base font-medium text-neutral-300 hover:text-white transition-colors"
+              >
+                <Search className="h-5 w-5" />
+                Поиск
+              </button>
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="block py-2 text-base font-medium text-gray-700 hover:text-[#0a0a0a] transition-colors"
+                  className="block py-2 text-base font-medium text-neutral-300 hover:text-white transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {link.label}
@@ -192,7 +203,7 @@ export function Header({
               {isAdmin && (
                 <Link
                   href="/admin"
-                  className="block py-2 text-base font-medium text-gray-700 hover:text-[#0a0a0a] transition-colors"
+                  className="block py-2 text-base font-medium text-neutral-300 hover:text-white transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Админ-панель
@@ -202,6 +213,9 @@ export function Header({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Search Dialog */}
+      <SearchDialog open={isSearchOpen} onOpenChange={setIsSearchOpen} />
     </header>
   )
 }

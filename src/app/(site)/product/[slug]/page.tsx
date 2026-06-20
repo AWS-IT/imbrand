@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { auth } from '@/lib/auth'
 import { ProductClient } from './ProductClient'
 import type { Metadata } from 'next'
 
@@ -63,6 +64,21 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound()
   }
 
+  // Проверяем, есть ли товар в избранном у текущего пользователя
+  const session = await auth()
+  let isInWishlist = false
+  if (session?.user?.id) {
+    const wishlistItem = await prisma.wishlistItem.findUnique({
+      where: {
+        userId_productId: {
+          userId: session.user.id,
+          productId: product.id,
+        },
+      },
+    })
+    isInWishlist = !!wishlistItem
+  }
+
   // Подсчитываем средний рейтинг
   const reviewCount = product.reviews.length
   const averageRating = reviewCount > 0
@@ -85,6 +101,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       product={productData}
       averageRating={averageRating}
       reviewCount={reviewCount}
+      isInWishlist={isInWishlist}
     />
   )
 }

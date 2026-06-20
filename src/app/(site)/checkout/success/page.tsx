@@ -1,4 +1,4 @@
-import Link from 'next/link'
+/*import Link from 'next/link'
 import { CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -47,3 +47,4 @@ export default async function CheckoutSuccessPage({ searchParams }: SuccessPageP
     </div>
   )
 }
+*/

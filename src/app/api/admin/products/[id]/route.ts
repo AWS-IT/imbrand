@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { uploadProductImage, deleteImage } from '@/lib/cloudinary'
+import { uploadProductImage, deleteImage } from '@/lib/upload'
 
 interface RouteParams {
   params: Promise<{
@@ -159,7 +159,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   const { id } = await params
 
   try {
-    // Получаем изображения для удаления из Cloudinary
+    // Получаем изображения для удаления
     const product = await prisma.product.findUnique({
       where: { id },
       include: { images: true },
@@ -169,7 +169,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Товар не найден' }, { status: 404 })
     }
 
-    // Удаляем изображения из Cloudinary
+    // Удаляем изображения с диска
     for (const img of product.images) {
       if (img.publicId) {
         await deleteImage(img.publicId)

@@ -8,3 +8,8 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 *.tsbuildinfo
+
+# Uploaded files (keep structure, ignore content)
+public/uploads/**/*
+!public/uploads/.gitkeep
+!public/uploads/*/.gitkeep

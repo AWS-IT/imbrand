@@ -3,13 +3,15 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Heart, ShoppingBag, ChevronLeft, ChevronRight, Star, Minus, Plus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ShoppingBag, ChevronLeft, ChevronRight, Star, Minus, Plus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { cn, formatPrice } from '@/lib/utils'
+import { addToCart } from '@/actions/cart'
+import { WishlistButton } from '@/components/wishlist/WishlistButton'
+import { useToast } from '@/hooks/use-toast'
 
 interface ProductVariant {
   id: string
@@ -55,9 +57,12 @@ interface ProductClientProps {
   product: Product
   averageRating: number
   reviewCount: number
+  isInWishlist?: boolean
 }
 
-export function ProductClient({ product, averageRating, reviewCount }: ProductClientProps) {
+export function ProductClient({ product, averageRating, reviewCount, isInWishlist = false }: ProductClientProps) {
+  const router = useRouter()
+  const { toast } = useToast()
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
@@ -84,11 +89,29 @@ export function ProductClient({ product, averageRating, reviewCount }: ProductCl
 
     setIsAddingToCart(true)
     try {
-      // TODO: реализовать добавление в корзину
-      await new Promise(resolve => setTimeout(resolve, 500))
-      alert('Товар добавлен в корзину!')
+      const result = await addToCart(product.id, selectedVariant.id, quantity)
+
+      if (result.error) {
+        toast({
+          title: 'Ошибка',
+          description: result.error,
+          variant: 'destructive',
+        })
+        return
+      }
+
+      toast({
+        title: 'Добавлено в корзину',
+        description: `${product.name} (${selectedVariant.size}, ${selectedVariant.color})`,
+      })
+      router.refresh()
     } catch (error) {
       console.error('Ошибка добавления в корзину:', error)
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось добавить товар в корзину',
+        variant: 'destructive',
+      })
     } finally {
       setIsAddingToCart(false)
     }
@@ -348,16 +371,18 @@ export function ProductClient({ product, averageRating, reviewCount }: ProductCl
               disabled={!selectedVariant || isAddingToCart}
               onClick={handleAddToCart}
             >
-              <ShoppingBag className="h-5 w-5 mr-2" />
+              {isAddingToCart ? (
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              ) : (
+                <ShoppingBag className="h-5 w-5 mr-2" />
+              )}
               {isAddingToCart ? 'Добавляем...' : 'Добавить в корзину'}
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="px-4"
-            >
-              <Heart className="h-5 w-5" />
-            </Button>
+            <WishlistButton
+              productId={product.id}
+              isInWishlist={isInWishlist}
+              className="p-4 border rounded-md hover:bg-gray-50"
+            />
           </div>
 
           {!selectedSize && !selectedColor && (

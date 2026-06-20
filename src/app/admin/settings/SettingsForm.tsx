@@ -2,13 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AdminLogoUpload } from '@/components/admin/AdminLogoUpload'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { Loader2 } from 'lucide-react'
 
 interface SiteSettings {
@@ -33,7 +31,6 @@ export function SettingsForm({ settings }: SettingsFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
-    siteName: settings?.siteName || 'Imbrand',
     contactEmail: settings?.contactEmail || '',
     contactPhone: settings?.contactPhone || '',
     contactAddress: settings?.contactAddress || '',
@@ -69,79 +66,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
     }
   }
 
-  const handleLogoUpload = async (base64: string) => {
-    try {
-      const response = await fetch('/api/admin/settings/logo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Ошибка загрузки')
-      }
-
-      router.refresh()
-    } catch (error) {
-      console.error('Ошибка:', error)
-      throw error
-    }
-  }
-
-  const handleLogoRemove = async () => {
-    try {
-      const response = await fetch('/api/admin/settings/logo', {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) {
-        throw new Error('Ошибка удаления')
-      }
-
-      router.refresh()
-    } catch (error) {
-      console.error('Ошибка:', error)
-      throw error
-    }
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Логотип */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Логотип</CardTitle>
-          <CardDescription>
-            Загрузите логотип вашего магазина. Он будет отображаться в шапке сайта.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <AdminLogoUpload
-            currentLogoUrl={settings?.logoUrl}
-            onUpload={handleLogoUpload}
-            onRemove={handleLogoRemove}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Основные настройки */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Основные настройки</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="siteName">Название сайта</Label>
-            <Input
-              id="siteName"
-              value={formData.siteName}
-              onChange={(e) => setFormData({ ...formData, siteName: e.target.value })}
-              placeholder="Imbrand"
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Контактная информация */}
       <Card>
         <CardHeader>

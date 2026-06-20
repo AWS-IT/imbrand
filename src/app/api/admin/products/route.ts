@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { uploadProductImage, deleteImage } from '@/lib/cloudinary'
+import { uploadProductImage } from '@/lib/upload'
 
 // Создание товара
 export async function POST(request: Request) {
@@ -34,16 +34,25 @@ export async function POST(request: Request) {
 
     for (const [key, value] of formData.entries()) {
       if (key.startsWith('image_') && value instanceof File) {
-        // Конвертируем файл в base64
-        const buffer = await value.arrayBuffer()
-        const base64 = `data:${value.type};base64,${Buffer.from(buffer).toString('base64')}`
+        try {
+          // Конвертируем файл в base64
+          const buffer = await value.arrayBuffer()
+          const base64 = `data:${value.type};base64,${Buffer.from(buffer).toString('base64')}`
 
-        const result = await uploadProductImage(base64)
-        images.push({
-          url: result.url,
-          publicId: result.publicId,
-          position: position++,
-        })
+          const result = await uploadProductImage(base64)
+          images.push({
+            url: result.url,
+            publicId: result.publicId,
+            position: position++,
+          })
+        } catch (uploadError) {
+          console.error('Ошибка загрузки изображения:', uploadError)
+          const message = uploadError instanceof Error ? uploadError.message : 'Ошибка загрузки изображения'
+          return NextResponse.json(
+            { error: message },
+            { status: 500 }
+          )
+        }
       }
     }
 

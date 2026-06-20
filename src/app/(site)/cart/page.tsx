@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/lib/utils'
-import { Trash2, Minus, Plus, ShoppingBag } from 'lucide-react'
+import { ShoppingBag } from 'lucide-react'
+import { CartItemActions } from '@/components/cart/CartItemActions'
 
 async function getCartItems(userId: string) {
   const items = await prisma.cartItem.findMany({
@@ -121,42 +122,12 @@ export default async function CartPage() {
                 </div>
 
                 {/* Количество и удаление */}
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="flex items-center border rounded-md">
-                    <form action={`/api/cart/update`} method="POST">
-                      <input type="hidden" name="itemId" value={item.id} />
-                      <input type="hidden" name="quantity" value={Math.max(1, item.quantity - 1)} />
-                      <button
-                        type="submit"
-                        className="p-2 hover:bg-gray-100 transition-colors"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                    </form>
-                    <span className="w-10 text-center text-sm">
-                      {item.quantity}
-                    </span>
-                    <form action={`/api/cart/update`} method="POST">
-                      <input type="hidden" name="itemId" value={item.id} />
-                      <input type="hidden" name="quantity" value={item.quantity + 1} />
-                      <button
-                        type="submit"
-                        className="p-2 hover:bg-gray-100 transition-colors"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </form>
-                  </div>
-
-                  <form action={`/api/cart/remove`} method="POST">
-                    <input type="hidden" name="itemId" value={item.id} />
-                    <button
-                      type="submit"
-                      className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                  </form>
+                <div className="mt-4">
+                  <CartItemActions
+                    itemId={item.id}
+                    quantity={item.quantity}
+                    maxStock={item.variant.stock}
+                  />
                 </div>
               </div>
             </div>

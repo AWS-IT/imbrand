@@ -3,10 +3,9 @@
 import { revalidatePath } from 'next/cache'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { initPayment } from '@/lib/tinkoff'
 import { sendOrderNotification } from '@/lib/notifications'
 import { generateOrderNumber } from '@/lib/utils'
-import type { Prisma, CartItem, Product, ProductVariant, Order, OrderItem, Payment, OrderStatus } from '@prisma/client'
+import type { Prisma, CartItem, Product, ProductVariant } from '@prisma/client'
 
 interface CreateOrderData {
   customerName: string
@@ -22,16 +21,7 @@ type CartItemWithRelations = CartItem & {
   variant: ProductVariant
 }
 
-type OrderItemWithVariant = OrderItem & {
-  variant: ProductVariant | null
-}
-
-type OrderWithItems = Order & {
-  items: OrderItemWithVariant[]
-  payment: Payment | null
-}
-
-// Создание заказа
+// Создание заявки (без оплаты)
 export async function createOrder(data: CreateOrderData) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -63,15 +53,15 @@ export async function createOrder(data: CreateOrderData) {
 
     // Считаем общую сумму
     const totalAmount = cartItems.reduce(
-      (sum: number, item: CartItemWithRelations) => sum + Number(item.product.price) * item.quantity,
+      (sum: number, item: CartItemWithRelations) =>
+        sum + Number(item.product.price) * item.quantity,
       0
     )
 
     const orderNumber = generateOrderNumber()
 
-    // Создаём заказ в транзакции
+    // Создаём заявку и сразу очищаем корзину в одной транзакции
     const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Создаём заказ
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
@@ -83,7 +73,8 @@ export async function createOrder(data: CreateOrderData) {
           deliveryCity: data.deliveryCity || null,
           deliveryAddress: data.deliveryAddress || null,
           comment: data.comment || null,
-          status: 'PENDING_PAYMENT',
+          // Статус сразу "в обработке" — оплата при получении/по договорённости
+          status: 'PROCESSING',
           items: {
             create: cartItems.map((item: CartItemWithRelations) => ({
               productId: item.productId,
@@ -97,37 +88,42 @@ export async function createOrder(data: CreateOrderData) {
           },
         },
         include: {
-          items: true,
+          items: {
+            include: {
+              variant: true,
+            },
+          },
         },
+      })
+
+      // Очищаем корзину сразу
+      await tx.cartItem.deleteMany({
+        where: { userId: session.user.id },
       })
 
       return newOrder
     })
 
-    // Инициируем платёж через Тинькофф
-    const payment = await initPayment({
-      amount: Math.round(totalAmount * 100), // в копейках
-      orderId: order.id,
-      description: `Заказ №${orderNumber} в магазине Imbrand`,
-      customerEmail: data.customerEmail,
-      customerPhone: data.customerPhone,
-    })
-
-    if (!payment.success || !payment.paymentUrl) {
-      // Удаляем заказ если не удалось создать платёж
-      await prisma.order.delete({ where: { id: order.id } })
-      return { error: payment.error || 'Ошибка создания платежа' }
-    }
-
-    // Сохраняем данные платежа
-    await prisma.payment.create({
-      data: {
-        orderId: order.id,
-        amount: totalAmount,
-        paymentId: payment.paymentId,
-        paymentUrl: payment.paymentUrl,
-        status: 'PENDING',
-      },
+    // Отправляем уведомление владельцу сразу после создания заявки
+    sendOrderNotification({
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerEmail: order.customerEmail ?? undefined,
+      deliveryAddress: order.deliveryAddress ?? undefined,
+      deliveryCity: order.deliveryCity ?? undefined,
+      items: order.items.map((item) => ({
+        name: item.productName,
+        size: item.productSize,
+        color: item.productColor,
+        quantity: item.quantity,
+        price: Number(item.price),
+      })),
+      totalAmount: Number(order.totalAmount),
+      comment: order.comment ?? undefined,
+    }).catch((err) => {
+      // Не блокируем ответ если уведомление не дошло — заявка уже создана
+      console.error('Ошибка отправки уведомления о заявке:', err)
     })
 
     revalidatePath('/cart')
@@ -137,104 +133,10 @@ export async function createOrder(data: CreateOrderData) {
       success: true,
       orderId: order.id,
       orderNumber: order.orderNumber,
-      paymentUrl: payment.paymentUrl,
     }
   } catch (error) {
-    console.error('Ошибка создания заказа:', error)
-    return { error: 'Ошибка создания заказа' }
-  }
-}
-
-// Обработка успешной оплаты (вызывается из webhook)
-export async function processSuccessfulPayment(orderId: string) {
-  try {
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: {
-        items: {
-          include: {
-            variant: true,
-          },
-        },
-        payment: true,
-      },
-    }) as OrderWithItems | null
-
-    if (!order) {
-      console.error('Заказ не найден:', orderId)
-      return false
-    }
-
-    if (order.status !== 'PENDING_PAYMENT') {
-      console.log('Заказ уже обработан:', orderId)
-      return true
-    }
-
-    // Обновляем заказ и списываем остатки в транзакции
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Обновляем статус заказа
-      await tx.order.update({
-        where: { id: orderId },
-        data: {
-          status: 'PAID',
-          paidAt: new Date(),
-        },
-      })
-
-      // Обновляем статус платежа
-      await tx.payment.update({
-        where: { orderId },
-        data: {
-          status: 'SUCCESS',
-          confirmedAt: new Date(),
-        },
-      })
-
-      // Списываем остатки
-      for (const item of order.items) {
-        if (item.variantId) {
-          await tx.productVariant.update({
-            where: { id: item.variantId },
-            data: {
-              stock: {
-                decrement: item.quantity,
-              },
-            },
-          })
-        }
-      }
-
-      // Очищаем корзину пользователя
-      if (order.userId) {
-        await tx.cartItem.deleteMany({
-          where: { userId: order.userId },
-        })
-      }
-    })
-
-    // Отправляем уведомления владельцу
-    await sendOrderNotification({
-      orderNumber: order.orderNumber,
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
-      customerEmail: order.customerEmail || undefined,
-      deliveryAddress: order.deliveryAddress || undefined,
-      deliveryCity: order.deliveryCity || undefined,
-      items: order.items.map((item: OrderItemWithVariant) => ({
-        name: item.productName,
-        size: item.productSize,
-        color: item.productColor,
-        quantity: item.quantity,
-        price: Number(item.price),
-      })),
-      totalAmount: Number(order.totalAmount),
-      comment: order.comment || undefined,
-    })
-
-    return true
-  } catch (error) {
-    console.error('Ошибка обработки успешной оплаты:', error)
-    return false
+    console.error('Ошибка создания заявки:', error)
+    return { error: 'Ошибка создания заявки. Попробуйте ещё раз.' }
   }
 }
 
@@ -248,7 +150,7 @@ export async function updateOrderStatus(orderId: string, status: string) {
   try {
     await prisma.order.update({
       where: { id: orderId },
-      data: { status: status as OrderStatus },
+      data: { status: status as any },
     })
 
     revalidatePath('/admin/orders')

@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { formatPrice } from '@/lib/utils'
-import { Heart, ShoppingBag, Trash2 } from 'lucide-react'
+import { Heart, ShoppingBag } from 'lucide-react'
+import { RemoveFromWishlistButton } from '@/components/wishlist/RemoveFromWishlistButton'
 
 async function getWishlistItems(userId: string) {
   const items = await prisma.wishlistItem.findMany({
@@ -128,16 +129,7 @@ export default async function WishlistPage() {
 
               {/* Кнопки действий */}
               <div className="absolute top-3 right-3 flex flex-col gap-2">
-                <form action="/api/wishlist/remove" method="POST">
-                  <input type="hidden" name="itemId" value={item.id} />
-                  <button
-                    type="submit"
-                    className="p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                    title="Удалить из избранного"
-                  >
-                    <Trash2 className="h-4 w-4 text-gray-600" />
-                  </button>
-                </form>
+                <RemoveFromWishlistButton productId={item.productId} />
 
                 {isInStock && (
                   <Link

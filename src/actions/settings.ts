@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { uploadLogo, deleteImage } from '@/lib/cloudinary'
+import { uploadLogo, deleteImage } from '@/lib/upload'
 
 interface UpdateSettingsData {
   siteName?: string
@@ -104,7 +104,8 @@ export async function uploadSiteLogo(imageBase64: string) {
     return { success: true, url: result.url }
   } catch (error) {
     console.error('Ошибка загрузки логотипа:', error)
-    return { error: 'Ошибка загрузки логотипа' }
+    const message = error instanceof Error ? error.message : 'Ошибка загрузки логотипа'
+    return { error: message }
   }
 }
 

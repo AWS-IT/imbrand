@@ -6,12 +6,10 @@ import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { formatPrice } from '@/lib/utils'
-import { Plus, Edit, Eye, EyeOff } from 'lucide-react'
+import { Plus, Eye, EyeOff } from 'lucide-react'
+import { ProductActions } from '@/components/admin/ProductActions'
 
 async function getProducts() {
   const products = await prisma.product.findMany({
@@ -127,19 +125,11 @@ export default async function AdminProductsPage() {
                   </div>
 
                   {/* Действия */}
-                  <div className="flex items-center gap-2">
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/admin/products/${product.id}`}>
-                        <Edit className="h-4 w-4 mr-1" />
-                        Редактировать
-                      </Link>
-                    </Button>
-                    <Button asChild variant="ghost" size="sm">
-                      <Link href={`/product/${product.slug}`} target="_blank">
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </div>
+                  <ProductActions
+                    productId={product.id}
+                    productSlug={product.slug}
+                    productName={product.name}
+                  />
                 </div>
               </CardContent>
             </Card>

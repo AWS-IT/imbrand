@@ -4,9 +4,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ArrowRight, Heart } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, cn } from '@/lib/utils'
 
 interface Product {
   id: string
@@ -21,9 +20,10 @@ interface Product {
 interface ProductCardProps {
   product: Product
   index?: number
+  darkMode?: boolean
 }
 
-export function ProductCard({ product, index = 0 }: ProductCardProps) {
+export function ProductCard({ product, index = 0, darkMode = false }: ProductCardProps) {
   const hasDiscount = product.oldPrice && product.oldPrice > product.price
   const discountPercent = hasDiscount
     ? Math.round((1 - product.price / Number(product.oldPrice)) * 100)
@@ -33,11 +33,14 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.1 }}
+      transition={{ duration: 0.4, delay: index * 0.05 }}
       className="group"
     >
       <Link href={`/product/${product.slug}`} className="block">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-gray-100 mb-4">
+        <div className={cn(
+          "relative aspect-[3/4] overflow-hidden rounded-lg mb-3",
+          darkMode ? "bg-neutral-800" : "bg-gray-100"
+        )}>
           {product.images[0] ? (
             <Image
               src={product.images[0].url}
@@ -47,14 +50,17 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+            <div className={cn(
+              "absolute inset-0 flex items-center justify-center text-sm",
+              darkMode ? "text-neutral-500" : "text-gray-400"
+            )}>
               Нет фото
             </div>
           )}
 
           {/* Скидка */}
           {hasDiscount && (
-            <Badge className="absolute top-3 left-3 bg-red-500 hover:bg-red-500">
+            <Badge className="absolute top-2.5 left-2.5 bg-rose-500 hover:bg-rose-500 text-xs px-2 py-0.5">
               -{discountPercent}%
             </Badge>
           )}
@@ -63,46 +69,50 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
           <button
             onClick={(e) => {
               e.preventDefault()
-              // TODO: добавить в избранное
             }}
-            className="absolute top-3 right-3 p-2 bg-white/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+            className={cn(
+              "absolute top-2.5 right-2.5 p-2 rounded-full shadow-sm opacity-0 group-hover:opacity-100 transition-all hover:scale-110",
+              darkMode ? "bg-neutral-700 text-white" : "bg-white text-gray-600"
+            )}
             aria-label="Добавить в избранное"
           >
             <Heart className="h-4 w-4" />
           </button>
 
-          {/* Быстрый просмотр */}
-          <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-              variant="secondary"
-              size="sm"
-              className="w-full"
-              onClick={(e) => {
-                e.preventDefault()
-                // TODO: быстрый просмотр
-              }}
-            >
-              Быстрый просмотр
-            </Button>
-          </div>
+          {/* Оверлей при наведении */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
         </div>
 
         {/* Информация о товаре */}
         <div className="space-y-1">
           {product.category && (
-            <p className="text-xs text-gray-500 uppercase tracking-wider">
+            <p className={cn(
+              "text-[11px] uppercase tracking-wider",
+              darkMode ? "text-neutral-500" : "text-gray-500"
+            )}>
               {product.category.name}
             </p>
           )}
-          <h3 className="text-sm font-medium text-gray-900 group-hover:text-gray-600 transition-colors line-clamp-2">
+          <h3 className={cn(
+            "text-sm font-medium transition-colors line-clamp-2 leading-snug",
+            darkMode
+              ? "text-white group-hover:text-neutral-300"
+              : "text-gray-900 group-hover:text-gray-600"
+          )}>
             {product.name}
           </h3>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">
+          <div className="flex items-center gap-2 pt-0.5">
+            <span className={cn(
+              "text-sm font-semibold",
+              darkMode ? "text-white" : "text-gray-900"
+            )}>
               {formatPrice(product.price)}
             </span>
             {hasDiscount && (
-              <span className="text-sm text-gray-400 line-through">
+              <span className={cn(
+                "text-xs line-through",
+                darkMode ? "text-neutral-500" : "text-gray-400"
+              )}>
                 {formatPrice(product.oldPrice!)}
               </span>
             )}
@@ -117,28 +127,37 @@ interface ProductGridProps {
   products: Product[]
   title?: string
   showMoreLink?: string
+  darkMode?: boolean
 }
 
-export function ProductGrid({ products, title, showMoreLink }: ProductGridProps) {
+export function ProductGrid({ products, title, showMoreLink, darkMode = false }: ProductGridProps) {
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500">Товары не найдены</p>
+        <p className={darkMode ? "text-neutral-500" : "text-gray-500"}>Товары не найдены</p>
       </div>
     )
   }
 
   return (
-    <section className="py-12 md:py-16">
+    <div>
       {title && (
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl md:text-3xl font-display font-semibold">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className={cn(
+            "text-2xl md:text-3xl font-display font-semibold",
+            darkMode ? "text-white" : "text-gray-900"
+          )}>
             {title}
           </h2>
           {showMoreLink && (
             <Link
               href={showMoreLink}
-              className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              className={cn(
+                "flex items-center text-sm font-medium transition-colors",
+                darkMode
+                  ? "text-neutral-400 hover:text-white"
+                  : "text-gray-600 hover:text-gray-900"
+              )}
             >
               Смотреть все
               <ArrowRight className="ml-1 h-4 w-4" />
@@ -149,9 +168,9 @@ export function ProductGrid({ products, title, showMoreLink }: ProductGridProps)
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
         {products.map((product, index) => (
-          <ProductCard key={product.id} product={product} index={index} />
+          <ProductCard key={product.id} product={product} index={index} darkMode={darkMode} />
         ))}
       </div>
-    </section>
+    </div>
   )
 }

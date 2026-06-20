@@ -17,7 +17,9 @@
       "Bash(tee /dev/stderr)",
       "Bash(curl -sI http://localhost:3000)",
       "Bash(curl -s http://localhost:3007)",
-      "Bash(curl -s \"http://localhost:3007/_next/static/css/app/layout.css?v=1775412653818\")"
+      "Bash(curl -s \"http://localhost:3007/_next/static/css/app/layout.css?v=1775412653818\")",
+      "Bash(rm -rf .next node_modules/.cache tsconfig.tsbuildinfo)",
+      "Bash(npx next:*)"
     ]
   }
 }

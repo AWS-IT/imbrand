@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
@@ -19,7 +19,7 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-export function LoginForm() {
+function LoginFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/'
@@ -112,5 +112,13 @@ export function LoginForm() {
         </Link>
       </p>
     </form>
+  )
+}
+
+export function LoginForm() {
+  return (
+    <Suspense fallback={<div className="animate-pulse h-64 bg-gray-100 rounded" />}>
+      <LoginFormContent />
+    </Suspense>
   )
 }
